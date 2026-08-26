@@ -7,9 +7,12 @@
   "packageManager": "pnpm@10.12.4",
   "scripts": {
     "prepare": "lefthook install",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
     "typecheck": "tsc --noEmit",
     "check": "pnpm lint && pnpm typecheck",
-    "verify": "pnpm check && pnpm test:coverage && pnpm knip",
+    "verify": "pnpm check && pnpm test:coverage && pnpm knip && pnpm build",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
@@ -19,11 +22,21 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.1",
+    "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^26.3.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
     "@vitest/coverage-v8": "^4.1.10",
     "knip": "^6.23.0",
     "lefthook": "^2.1.9",
+    "postcss": "^8.5.26",
+    "tailwindcss": "^4.3.3",
     "typescript": "^5.9.2",
     "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "next": "^16.3.3",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   }
 }

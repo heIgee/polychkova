@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+:root {
+  --paper: oklch(0.97 0.01 95);
+  --panel: oklch(1 0 0);
+  --ink: oklch(0.17 0.02 260);
+  --muted: oklch(0.4 0.03 260);
+  --line: oklch(0.17 0.02 260);
+  --accent: oklch(0.68 0.18 250);
+  --accent-ink: oklch(0.13 0.03 250);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: oklch(0.18 0.02 260);
+    --panel: oklch(0.24 0.03 260);
+    --ink: oklch(0.96 0.01 95);
+    --muted: oklch(0.78 0.02 260);
+    --line: oklch(0.96 0.01 95);
+    --accent: oklch(0.72 0.17 250);
+    --accent-ink: oklch(0.14 0.03 250);
+  }
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-panel: var(--panel);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --font-display: var(--font-heading);
+  --font-body: var(--font-copy);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--paper);
+}
+
+body {
+  min-width: 320px;
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-copy), sans-serif;
+}
+
+::selection {
+  background: var(--line);
+  color: var(--paper);
+}
+
+:focus-visible {
+  outline: 4px solid var(--accent);
+  outline-offset: 4px;
+}
