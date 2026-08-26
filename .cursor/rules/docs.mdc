@@ -1,0 +1,10 @@
+---
+description: Where docs live and when to update them
+globs: **/*.md
+alwaysApply: false
+---
+
+# Docs maintenance
+
+- Single source of truth: env vars in `.env.example`, scripts in `package.json` — docs reference, don't duplicate.
+- README stays concise — point to `.env.example`, migrations, or code for detail.

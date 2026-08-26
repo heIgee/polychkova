@@ -1,0 +1,20 @@
+---
+description: E2E conventions (Playwright, isolation, loading states)
+globs: e2e/**
+alwaysApply: false
+---
+
+# E2E
+
+## No fixed waits
+
+Use condition-based assertions and waits. Do not use arbitrary delays such as `waitForTimeout` or `sleep`.
+
+## Isolation
+
+- Isolate test data and resources so specs pass in any order.
+- Choose ports, workers, and fixtures based on the resources each test actually shares.
+
+## Test shape
+
+- Test behavior and accessible state. Use screenshots only when visual appearance is the behavior under test.

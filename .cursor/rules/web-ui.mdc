@@ -1,0 +1,14 @@
+---
+description: Accessibility and markup rules for UI components
+globs: app/**/*.tsx,components/**/*.tsx
+alwaysApply: false
+---
+
+# Web UI
+
+- Use semantic HTML and native controls where possible.
+- Custom interactions must remain keyboard-accessible and expose an accessible name.
+
+## Layout stability
+
+- Reserve space for media when its dimensions are known to avoid layout shifts.

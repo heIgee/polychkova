@@ -1,0 +1,17 @@
+colors: false
+
+output:
+  - failure
+  - execution_out
+
+pre-commit:
+  parallel: false
+  commands:
+    biome:
+      glob: "*.{ts,tsx,json}"
+      run: pnpm biome check --write --no-errors-on-unmatched --files-ignore-unknown=true --colors=off {staged_files}
+      stage_fixed: true
+      skip_output: true
+    typecheck:
+      run: pnpm typecheck
+      skip_output: true

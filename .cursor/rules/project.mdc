@@ -1,0 +1,55 @@
+---
+description: Cross-cutting conventions for polychkova
+alwaysApply: true
+---
+
+# Polychkova
+
+Tier list app. Planned work: `ROADMAP.md`.
+
+## Agent communication
+
+- Terse, technical, no-fluff responses.
+- Lead with the result; include evidence or commands when useful.
+
+## Before changing code
+
+- Read sibling files; match naming, layout, patterns.
+- Smallest correct diff. No drive-by refactors.
+- New dependency → concrete reason; flag before adding. Use `pnpm add` / `pnpm add -D`.
+
+## Simplicity
+
+- Prefer less code: delete/simplify before new hooks, listeners, deps.
+- Passing CI does not justify extra machinery.
+
+## Docs and comments
+
+- No session-specific fixes or chat context in repo files.
+- Behavior, env, or CI changes → update `README.md` in the same change.
+- `ROADMAP.md` for planned work; remove items when shipped.
+- Comments: why non-obvious, not what the code already says.
+
+## Quality bar
+
+- Complete, working changes for requested scope only.
+- Root-cause only — no `@ts-ignore`, blanket lint disables, stub returns, config loosening.
+- Proper fix blocked → stop and report.
+
+## Verification
+
+Before done:
+
+```shell
+pnpm verify
+```
+
+## Env & secrets
+
+- Never commit `.env` / `.env.local`.
+- API keys server-only — not `NEXT_PUBLIC_*` unless truly public.
+- Document new environment variables in `.env.example`.
+
+## Git
+
+- Never commit, stage, or push. User runs all git ops.

@@ -1,0 +1,64 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+out/
+.next/
+*.tsbuildinfo
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test / coverage
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+
+# Caches
+.cache/
+.eslintcache
+*.cache
+
+# SQLite
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# OS
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# Editors
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Package managers
+package-lock.json
+yarn.lock
+
+# Misc
+*.pem
+.vercel
+
+# Markdown — ignore by default
+*.md
+!README.md
+!ROADMAP.md

@@ -1,0 +1,12 @@
+---
+description: TypeScript and naming conventions
+globs: **/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# TypeScript
+
+- Type public contracts at module boundaries when inference does not make intent clear.
+- No empty `catch`. No floating promises — `await` or explicit `void`.
+- Biome owns lint and formatting.
+- Prefer narrowing, type guards, and `satisfies` over assertions; do not use `as any`.
