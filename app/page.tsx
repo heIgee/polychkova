@@ -1,4 +1,11 @@
-export default function Home() {
+import { auth } from "@/auth";
+import { readEnv } from "@/lib/env";
+
+export default async function Home() {
+  const session =
+    process.env.NODE_ENV === "production" || readEnv("AUTH_SECRET") ? await auth() : null;
+  const signedIn = Boolean(session?.user?.id);
+
   return (
     <main className="min-h-screen bg-paper text-ink">
       <div className="mx-auto grid min-h-screen max-w-[1440px] grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
@@ -18,12 +25,20 @@ export default function Home() {
               Polychkova is a tier-list app for making rankings, keeping them interactive, and
               sharing them with friends.
             </p>
-            <a
-              href="/demo/edit"
-              className="mt-8 inline-flex border-4 border-line bg-accent px-5 py-3 font-body text-sm font-bold text-accent-ink shadow-[6px_6px_0_var(--line)] transition-transform hover:translate-x-1 hover:translate-y-1 hover:shadow-[4px_4px_0_var(--line)]"
-            >
-              Try the editor →
-            </a>
+            <div className="mt-8 flex flex-wrap gap-4">
+              <a
+                href="/demo/edit"
+                className="inline-flex border-4 border-line bg-accent px-5 py-3 font-body text-sm font-bold text-accent-ink shadow-[6px_6px_0_var(--line)] transition-transform hover:translate-x-1 hover:translate-y-1 hover:shadow-[4px_4px_0_var(--line)]"
+              >
+                Try the editor →
+              </a>
+              <a
+                href={signedIn ? "/account" : "/sign-in"}
+                className="inline-flex border-4 border-line bg-panel px-5 py-3 font-body text-sm font-bold shadow-[6px_6px_0_var(--line)] transition-transform hover:translate-x-1 hover:translate-y-1 hover:shadow-[4px_4px_0_var(--line)]"
+              >
+                {signedIn ? "Your account" : "Sign in"}
+              </a>
+            </div>
           </div>
         </section>
 

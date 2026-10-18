@@ -5,7 +5,6 @@ pages.
 
 ## 1. Accounts and ownership
 
-- Sign in with Discord or Google.
 - Create, edit, and delete account-owned lists from a private My Lists dashboard.
 - Give each list a title and optional description.
 - Make lists unlisted by default, with an option to publish them for discovery.

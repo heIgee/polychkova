@@ -17,7 +17,7 @@ pnpm install
 
 ## Env
 
-No environment variables are required yet. When added, copy `.env.example` to `.env.local` for Next.js. Standalone scripts must load `.env` explicitly. Keep API keys server-only.
+Copy `.env.example` to `.env.local`. Sign-in and deploy steps are in [AUTH_SETUP.md](AUTH_SETUP.md). `pnpm db:migrate` reads `.env.local` when `DIRECT_URL` is not already set. Keep secrets server-only.
 
 ## Scripts
 
@@ -31,14 +31,22 @@ No environment variables are required yet. When added, copy `.env.example` to `.
 | `pnpm lint` / `pnpm lint:fix` | Biome                                              |
 | `pnpm test`                   | Vitest                                             |
 | `pnpm knip`                   | unused deps/exports                                |
+| `pnpm db:generate`            | write a Drizzle migration from the schema          |
+| `pnpm db:migrate`             | apply committed migrations                         |
 
 Pre-commit: lefthook fixes staged TypeScript/JSON files with Biome, then typechecks the project.
+
+## Sign-in
+
+`/sign-in` starts Discord or Google sign-in. The same verified email from either provider is one user. `/account` shows the signed-in user, edits the display name and icon, and signs out.
+The session cookie is a JWT. Users and OAuth accounts are stored in Postgres. A provider icon is the URL in `user.image`. An uploaded icon is cropped to a square in the browser, encoded as WebP, and stored as bytes on that same row.
 
 ## Editor slice
 
 Open `/demo/edit` to try the in-memory tier-list editor. It supports adding items by title with an
 optional image URL, editing and deleting items, tier management, drag-and-drop ranking, and a reset
-back to the demo seed. Changes are transient until persistence is added.
+back to the demo seed. Changes are transient until persistence is added. The demo does not require
+an account.
 
 ## Layout
 
@@ -51,7 +59,7 @@ e2e/           Playwright (later)
 
 ## CI
 
-`.github/workflows/ci.yml` — install → check → coverage → knip → build on `ubuntu-latest`.
+`.github/workflows/ci.yml` runs two jobs on `ubuntu-latest`. `check` is install → check → knip → build, with a dummy `AUTH_SECRET` and no database. `test` boots Postgres, runs `pnpm db:migrate`, then coverage.
 
 The homepage links to the editor slice. Product features are planned in [ROADMAP.md](ROADMAP.md)
 and will be added in focused increments.

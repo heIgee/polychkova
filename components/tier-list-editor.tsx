@@ -655,6 +655,11 @@ export function TierListEditor({ initialState }: { initialState: TierListState }
   }
 
   function dropItem(activeDrag: DragState, clientX: number, clientY: number) {
+    const from = activeDrag.from;
+    if (!from) {
+      return;
+    }
+
     const element = document.elementFromPoint(clientX, clientY);
     const target = element?.closest("[data-item-drop-target]") as HTMLElement | null;
     const targetId = target?.dataset.itemDropTarget;
@@ -667,7 +672,7 @@ export function TierListEditor({ initialState }: { initialState: TierListState }
     const ids = getCollectionIds(stateRef.current, to).filter((id) => id !== activeDrag.id);
     const hovered = element?.closest("[data-item-id]") as HTMLElement | null;
     const hoveredId = hovered?.dataset.itemId;
-    let index = ids.length;
+    let index: number | null = null;
     if (hoveredId) {
       const hoveredIndex = ids.indexOf(hoveredId);
       if (hoveredIndex !== -1) {
@@ -676,7 +681,16 @@ export function TierListEditor({ initialState }: { initialState: TierListState }
       }
     }
 
-    moveItem(activeDrag.id, activeDrag.from as Location, to, index);
+    // The dragged card ignores pointer events, so a release on its own slot or on row
+    // padding hits the row instead of a card. Appending would reorder that row in place.
+    if (index === null) {
+      if (locationValue(from) === locationValue(to)) {
+        return;
+      }
+      index = ids.length;
+    }
+
+    moveItem(activeDrag.id, from, to, index);
   }
 
   function dropTier(activeDrag: DragState, clientX: number, clientY: number) {

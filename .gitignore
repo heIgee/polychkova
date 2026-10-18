@@ -63,3 +63,4 @@ yarn.lock
 *.md
 !README.md
 !ROADMAP.md
+!AUTH_SETUP.md

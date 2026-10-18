@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ci:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,6 +26,45 @@ jobs:
 
       - run: pnpm check
 
+      - run: pnpm knip
+
+      - run: pnpm build
+        env:
+          AUTH_SECRET: ci-build-placeholder-not-a-real-secret
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: polychkova
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 2s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/polychkova
+      DIRECT_URL: postgres://postgres:postgres@localhost:5432/polychkova
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm db:migrate
+
       - run: pnpm test:coverage
 
       - uses: actions/upload-artifact@v4
@@ -33,7 +72,3 @@ jobs:
         with:
           name: coverage
           path: coverage
-
-      - run: pnpm knip
-
-      - run: pnpm build
