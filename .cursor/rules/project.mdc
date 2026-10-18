@@ -25,7 +25,11 @@ Tier list app. Planned work: `ROADMAP.md`.
 
 ## Docs and comments
 
-- No session-specific fixes or chat context in repo files.
+- Repo docs are specifications, not agent memory. Never persist guidance inferred from the current
+  or recent work, including generalized versions of its problems, fixes, or implementation choices.
+- Edit `.cursor/rules/**` only when the user explicitly asks to establish or revise a specific
+  durable policy. Do not treat a request to implement, debug, explain, or update docs as permission
+  to create repository guidance.
 - Behavior, env, or CI changes → update `README.md` in the same change.
 - `ROADMAP.md` for planned work; remove items when shipped.
 - Comments: why non-obvious, not what the code already says.

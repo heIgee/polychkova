@@ -1,27 +1,41 @@
 # Roadmap
 
-Tier list app with image uploads, domain search, persistent lists, and shareable public links.
+Category-agnostic tier lists with account ownership, flexible item sources, and live shareable
+pages.
 
-## First usable release
+## 1. Accounts and ownership
 
-- Create a list with a title and editable tier labels.
-- Add items by uploading an image, pasting an image URL, or searching one domain catalog.
-- Drag items between tiers and reorder them.
-- Save a list and return to edit it.
-- Share a read-only link that works without an account.
+- Sign in with Discord or Google.
+- Create, edit, and delete account-owned lists from a private My Lists dashboard.
+- Give each list a title and optional description.
+- Make lists unlisted by default, with an option to publish them for discovery.
 
-## After people use it
+## 2. Universal editor
 
-- Fork a shared list and re-rank the same items.
-- Add accounts if link-based ownership becomes limiting.
-- Add rich Discord previews.
-- Add another domain catalog based on what people actually rank.
-- Improve mobile drag behavior if it is a real problem.
+- Add, remove, rename, reorder, and recolor tiers.
+- Add category-agnostic items by uploading an image or pasting an image URL.
+- Optionally search IGDB for game artwork, titles, descriptions, and source links.
+- Rank items from an unranked pool with desktop and touch drag-and-drop.
+- Autosave changes and show their current save status.
 
-## Not planned
+## 3. Sharing, discovery, and reuse
+
+- Open public and unlisted read-only links without an account.
+- Inspect item titles, images, source attribution, and available catalog descriptions.
+- Generate rich previews for Discord and other social links.
+- Browse recent public lists and search them by title.
+- Sign in to fork a shared list; copy its tiers and items into a fresh unranked pool.
+
+## After the first release
+
+- Add another optional domain catalog when actual use identifies the next useful source.
+- Add high-resolution, customizable image exports while keeping live URLs primary.
+- Improve creation, ranking, and discovery based on observed use.
+
+## Boundaries
 
 - Payments or subscriptions.
 - Realtime collaborative editing.
-- High-resolution image or vector exports.
 - A large template library or SEO-content operation.
-- Unlimited general web image search.
+- Unlimited general web image search is not viable at public-app scale; use uploads, pasted
+  URLs, and bounded domain catalogs instead.

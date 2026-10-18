@@ -18,6 +18,12 @@ export default function Home() {
               Polychkova is a tier-list app for making rankings, keeping them interactive, and
               sharing them with friends.
             </p>
+            <a
+              href="/demo/edit"
+              className="mt-8 inline-flex border-4 border-line bg-accent px-5 py-3 font-body text-sm font-bold text-accent-ink shadow-[6px_6px_0_var(--line)] transition-transform hover:translate-x-1 hover:translate-y-1 hover:shadow-[4px_4px_0_var(--line)]"
+            >
+              Try the editor →
+            </a>
           </div>
         </section>
 
