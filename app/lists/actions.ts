@@ -1,11 +1,17 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { getDb } from "@/lib/db/client";
-import { lists } from "@/lib/db/schema";
-import { createDefaultBoard, parseListSave } from "@/lib/list-board";
+import { listImages, lists } from "@/lib/db/schema";
+import {
+  createDefaultBoard,
+  hasForeignListImage,
+  parseListSave,
+  parseStoredList,
+  removedListImageIds,
+} from "@/lib/list-board";
 
 async function requireUserId() {
   const session = await auth();
@@ -49,20 +55,48 @@ export async function saveList(listId: string, input: { state: unknown; visibili
   if (!parsed.ok) {
     return parsed;
   }
+  if (hasForeignListImage(parsed.list.board, listId)) {
+    return { ok: false as const, error: "Invalid list." };
+  }
 
-  const updated = await getDb()
-    .update(lists)
-    .set({
-      title: parsed.list.title,
-      description: parsed.list.description,
-      visibility: parsed.list.visibility,
-      board: parsed.list.board,
-      updatedAt: new Date(),
-    })
-    .where(and(eq(lists.id, listId), eq(lists.userId, userId)))
-    .returning({ id: lists.id });
+  const saved = await getDb().transaction(async (tx) => {
+    const [current] = await tx
+      .select({
+        title: lists.title,
+        description: lists.description,
+        visibility: lists.visibility,
+        board: lists.board,
+      })
+      .from(lists)
+      .where(and(eq(lists.id, listId), eq(lists.userId, userId)));
+    if (!current) {
+      return false;
+    }
 
-  if (updated.length === 0) {
+    await tx
+      .update(lists)
+      .set({
+        title: parsed.list.title,
+        description: parsed.list.description,
+        visibility: parsed.list.visibility,
+        board: parsed.list.board,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(lists.id, listId), eq(lists.userId, userId)));
+
+    // An upload row exists before the board cites it. Only images that left the
+    // previously saved board are safe to remove; a newer in-flight save still has them.
+    const stored = parseStoredList(current);
+    const drop = stored.ok ? removedListImageIds(stored.list.board, parsed.list.board, listId) : [];
+    if (drop.length > 0) {
+      await tx
+        .delete(listImages)
+        .where(and(eq(listImages.listId, listId), inArray(listImages.id, drop)));
+    }
+    return true;
+  });
+
+  if (!saved) {
     return { ok: false as const, error: "List not found." };
   }
   return { ok: true as const };

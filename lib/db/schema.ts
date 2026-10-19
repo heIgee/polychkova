@@ -72,3 +72,18 @@ export const lists = pgTable(
     check("list_visibility_check", sql`${list.visibility} in ('unlisted', 'public')`),
   ],
 );
+
+export const listImages = pgTable(
+  "list_image",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    listId: text("listId")
+      .notNull()
+      .references(() => lists.id, { onDelete: "cascade" }),
+    bytes: bytea("bytes").notNull(),
+    type: text("type").notNull(),
+  },
+  (image) => [index("list_image_listId_idx").on(image.listId)],
+);

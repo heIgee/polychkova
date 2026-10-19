@@ -3,13 +3,6 @@
 Category-agnostic tier lists with account ownership, flexible item sources, and live shareable
 pages.
 
-## 2. Universal editor
-
-- Add, remove, rename, reorder, and recolor tiers.
-- Add category-agnostic items by uploading an image or pasting an image URL.
-- Optionally search IGDB for game artwork, titles, descriptions, and source links.
-- Rank items from an unranked pool with desktop and touch drag-and-drop.
-
 ## 3. Sharing, discovery, and reuse
 
 - Publish lists for discovery.

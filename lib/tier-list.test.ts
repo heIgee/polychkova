@@ -21,9 +21,27 @@ const initialState: TierListState = {
     { id: "a", label: "A", color: "#f97316", itemIds: ["two"] },
   ],
   itemsById: {
-    one: { id: "one", title: "One", imageUrl: "https://example.com/one.jpg" },
-    two: { id: "two", title: "Two", imageUrl: "https://example.com/two.jpg" },
-    three: { id: "three", title: "Three", imageUrl: "https://example.com/three.jpg" },
+    one: {
+      id: "one",
+      title: "One",
+      imageUrl: "https://example.com/one.jpg",
+      description: "",
+      sourceUrl: "",
+    },
+    two: {
+      id: "two",
+      title: "Two",
+      imageUrl: "https://example.com/two.jpg",
+      description: "",
+      sourceUrl: "",
+    },
+    three: {
+      id: "three",
+      title: "Three",
+      imageUrl: "https://example.com/three.jpg",
+      description: "",
+      sourceUrl: "",
+    },
   },
   unrankedItemIds: ["three"],
 };
@@ -52,6 +70,8 @@ describe("tier-list state", () => {
       id: "four",
       title: "Four",
       imageUrl: "",
+      description: "",
+      sourceUrl: "",
     });
 
     expect(added.itemsById.four).toMatchObject({ title: "Four", imageUrl: "" });
@@ -65,22 +85,36 @@ describe("tier-list state", () => {
       id: "four",
       title: "Four",
       imageUrl: "data:image/png;base64,abc",
+      description: "",
+      sourceUrl: "",
     });
     const emptyTitle = addItem(initialState, {
       id: "four",
       title: "  ",
       imageUrl: "",
+      description: "",
+      sourceUrl: "",
+    });
+    const badSource = addItem(initialState, {
+      id: "four",
+      title: "Four",
+      imageUrl: "",
+      description: "",
+      sourceUrl: "javascript:alert(1)",
     });
     const duplicate = addItem(initialState, {
       id: "one",
       title: "Duplicate",
       imageUrl: "https://example.com/duplicate.jpg",
+      description: "",
+      sourceUrl: "",
     });
 
     expect(invalidList).toBe(initialState);
     expect(invalidTier).toBe(initialState);
     expect(invalidItem).toBe(initialState);
     expect(emptyTitle).toBe(initialState);
+    expect(badSource).toBe(initialState);
     expect(duplicate).toBe(initialState);
   });
 
@@ -89,6 +123,8 @@ describe("tier-list state", () => {
       id: "four",
       title: "  Four ",
       imageUrl: " https://example.com/four.jpg ",
+      description: "  A note ",
+      sourceUrl: " https://example.com/four ",
     });
     const updated = updateItem(added, "four", { title: "Updated" });
     const removed = removeItem(updated, "one");

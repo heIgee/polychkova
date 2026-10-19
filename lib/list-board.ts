@@ -1,6 +1,9 @@
 import {
   type Item,
+  isHostedListImage,
+  isItemImageRef,
   isValidImageUrl,
+  MAX_ITEM_TEXT,
   TIER_COLORS,
   type Tier,
   type TierColor,
@@ -29,7 +32,7 @@ const DEFAULT_TIER_LABELS = ["S", "A", "B", "C", "D"] as const;
 const STATE_KEYS = ["title", "description", "tiers", "itemsById", "unrankedItemIds"];
 const BOARD_KEYS = ["tiers", "itemsById", "unrankedItemIds"];
 const TIER_KEYS = ["id", "label", "color", "itemIds"];
-const ITEM_KEYS = ["id", "title", "imageUrl"];
+const ITEM_KEYS = ["id", "title", "imageUrl", "description", "sourceUrl"];
 
 export function createDefaultBoard(): ListBoard {
   return {
@@ -43,6 +46,37 @@ export function createDefaultBoard(): ListBoard {
     itemsById: {},
     unrankedItemIds: [],
   };
+}
+
+export function listImageId(listId: string, imageUrl: string) {
+  const prefix = `/api/lists/${listId}/images/`;
+  if (!imageUrl.startsWith(prefix) || !isHostedListImage(imageUrl)) {
+    return null;
+  }
+  return imageUrl.slice(prefix.length);
+}
+
+export function retainedListImageIds(board: ListBoard, listId: string) {
+  const ids: string[] = [];
+  for (const item of Object.values(board.itemsById)) {
+    const imageId = listImageId(listId, item.imageUrl);
+    if (imageId) {
+      ids.push(imageId);
+    }
+  }
+  return ids;
+}
+
+export function removedListImageIds(before: ListBoard, after: ListBoard, listId: string) {
+  const kept = new Set(retainedListImageIds(after, listId));
+  return [...new Set(retainedListImageIds(before, listId))].filter((imageId) => !kept.has(imageId));
+}
+
+export function hasForeignListImage(board: ListBoard, listId: string) {
+  const prefix = `/api/lists/${listId}/images/`;
+  return Object.values(board.itemsById).some(
+    (item) => item.imageUrl.startsWith("/api/lists/") && !item.imageUrl.startsWith(prefix),
+  );
 }
 
 export function assembleTierList(row: {
@@ -185,13 +219,27 @@ function parseItem(key: string, value: unknown): Item | null {
   }
   const title = readText(value.title);
   const imageUrl = readText(value.imageUrl);
-  if (value.id !== key || !title || imageUrl === null) {
+  const description = value.description === undefined ? "" : readText(value.description);
+  const sourceUrl = value.sourceUrl === undefined ? "" : readText(value.sourceUrl);
+  if (
+    value.id !== key ||
+    !title ||
+    imageUrl === null ||
+    description === null ||
+    sourceUrl === null
+  ) {
     return null;
   }
-  if (imageUrl !== "" && !isValidImageUrl(imageUrl)) {
+  if (description.length > MAX_ITEM_TEXT || sourceUrl.length > MAX_ITEM_TEXT) {
     return null;
   }
-  return { id: key, title, imageUrl };
+  if (imageUrl !== "" && !isItemImageRef(imageUrl)) {
+    return null;
+  }
+  if (sourceUrl !== "" && !isValidImageUrl(sourceUrl)) {
+    return null;
+  }
+  return { id: key, title, imageUrl, description, sourceUrl };
 }
 
 function readText(value: unknown) {

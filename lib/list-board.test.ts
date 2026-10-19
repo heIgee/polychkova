@@ -1,9 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { assembleTierList, type ListBoard, parseListSave } from "./list-board";
+import {
+  assembleTierList,
+  hasForeignListImage,
+  type ListBoard,
+  parseListSave,
+  removedListImageIds,
+  retainedListImageIds,
+} from "./list-board";
 
 const board: ListBoard = {
   tiers: [{ id: "s", label: "S", color: "#ef4444", itemIds: ["one"] }],
-  itemsById: { one: { id: "one", title: "One", imageUrl: "https://example.com/one.jpg" } },
+  itemsById: {
+    one: {
+      id: "one",
+      title: "One",
+      imageUrl: "https://example.com/one.jpg",
+      description: "",
+      sourceUrl: "",
+    },
+  },
   unrankedItemIds: [],
 };
 
@@ -91,11 +106,69 @@ describe("list board", () => {
       description: "",
       tiers: [],
       itemsById: {
-        one: { id: "one", title: "a".repeat(MAX_TITLE), imageUrl: "" },
+        one: {
+          id: "one",
+          title: "a".repeat(MAX_TITLE),
+          imageUrl: "",
+          description: "",
+          sourceUrl: "",
+        },
       },
       unrankedItemIds: ["one"],
     });
     expect(oversized).toEqual({ ok: false, error: "List is too large." });
+    expect(
+      save({
+        ...valid,
+        itemsById: {
+          one: {
+            id: "one",
+            title: "One",
+            imageUrl: "https://example.com/one.jpg",
+            description: "",
+            sourceUrl: "javascript:alert(1)",
+          },
+        },
+      }).ok,
+    ).toBe(false);
+  });
+
+  it("fills omitted item text and keeps a hosted image on this list", () => {
+    const listId = "11111111-1111-4111-8111-111111111111";
+    const imageId = "22222222-2222-4222-8222-222222222222";
+    const imageUrl = `/api/lists/${listId}/images/${imageId}`;
+    const parsed = save({
+      title: "Games",
+      description: "",
+      tiers: [],
+      itemsById: {
+        one: { id: "one", title: "One", imageUrl },
+      },
+      unrankedItemIds: ["one"],
+    });
+
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) {
+      return;
+    }
+    expect(parsed.list.board.itemsById.one).toMatchObject({
+      imageUrl,
+      description: "",
+      sourceUrl: "",
+    });
+    expect(retainedListImageIds(parsed.list.board, listId)).toEqual([imageId]);
+    expect(removedListImageIds(board, parsed.list.board, listId)).toEqual([]);
+    expect(
+      removedListImageIds(
+        parsed.list.board,
+        { ...parsed.list.board, itemsById: {}, unrankedItemIds: [] },
+        listId,
+      ),
+    ).toEqual([imageId]);
+    expect(hasForeignListImage(parsed.list.board, listId)).toBe(false);
+    expect(hasForeignListImage(parsed.list.board, "33333333-3333-4333-8333-333333333333")).toBe(
+      true,
+    );
   });
 });
 

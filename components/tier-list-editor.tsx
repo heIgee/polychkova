@@ -3,10 +3,15 @@
 import Image from "next/image";
 import { useEffect, useReducer, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { ItemImagePicker } from "@/components/item-image-picker";
+import type { CatalogHit } from "@/lib/igdb";
+import { listImageId } from "@/lib/list-board";
 import {
   type Item,
+  isItemImageRef,
   isValidImageUrl,
   type Location,
+  MAX_ITEM_TEXT,
   TIER_COLORS,
   type Tier,
   type TierListAction,
@@ -274,6 +279,39 @@ function createId(prefix: string) {
   return `${prefix}-${crypto.randomUUID()}`;
 }
 
+function readError(payload: unknown) {
+  if (!payload || typeof payload !== "object" || !("error" in payload)) {
+    return null;
+  }
+  return typeof payload.error === "string" ? payload.error : null;
+}
+
+function readCatalogHits(payload: unknown): CatalogHit[] | null {
+  if (
+    !payload ||
+    typeof payload !== "object" ||
+    !("hits" in payload) ||
+    !Array.isArray(payload.hits)
+  ) {
+    return null;
+  }
+  const hits: CatalogHit[] = [];
+  for (const hit of payload.hits) {
+    if (
+      !hit ||
+      typeof hit !== "object" ||
+      typeof hit.title !== "string" ||
+      typeof hit.description !== "string" ||
+      typeof hit.imageUrl !== "string" ||
+      typeof hit.sourceUrl !== "string"
+    ) {
+      return null;
+    }
+    hits.push(hit);
+  }
+  return hits;
+}
+
 function getCollectionIds(state: TierListState, location: Location) {
   if (location.kind === "unranked") {
     return state.unrankedItemIds;
@@ -377,12 +415,16 @@ export function TierListEditor({
   visibilitySlot,
   saveStatus,
   onRetrySave,
+  listId,
+  gameSearch = false,
 }: {
   initialState: TierListState;
   onChange?: (state: TierListState) => void;
   visibilitySlot?: VisibilitySlot;
   saveStatus?: SaveStatus;
   onRetrySave?: () => void;
+  listId?: string;
+  gameSearch?: boolean;
 }) {
   const [state, dispatch] = useReducer(tierListReducer, initialState);
   const [titleDraft, setTitleDraft] = useState(initialState.title);
@@ -390,6 +432,7 @@ export function TierListEditor({
   const [newTierLabel, setNewTierLabel] = useState("");
   const [newItemTitle, setNewItemTitle] = useState("");
   const [newItemImageUrl, setNewItemImageUrl] = useState("");
+  const newItemImageUrlRef = useRef("");
   const [itemFormError, setItemFormError] = useState("");
   const [tierFormError, setTierFormError] = useState("");
   const [announcement, setAnnouncement] = useState("");
@@ -398,7 +441,13 @@ export function TierListEditor({
   const [selection, setSelection] = useState<EditorSelection | null>(null);
   const [editItemTitle, setEditItemTitle] = useState("");
   const [editItemImageUrl, setEditItemImageUrl] = useState("");
+  const [editItemDescription, setEditItemDescription] = useState("");
+  const [editItemSourceUrl, setEditItemSourceUrl] = useState("");
   const [editItemError, setEditItemError] = useState("");
+  const [gameQuery, setGameQuery] = useState("");
+  const [gameHits, setGameHits] = useState<CatalogHit[]>([]);
+  const [gameError, setGameError] = useState("");
+  const [gameBusy, setGameBusy] = useState(false);
   const [editTierLabel, setEditTierLabel] = useState("");
   const pressRef = useRef<PressState | null>(null);
   const stateRef = useRef(state);
@@ -408,9 +457,12 @@ export function TierListEditor({
   const descriptionDraftRef = useRef(descriptionDraft);
   const editItemTitleRef = useRef(editItemTitle);
   const editItemImageUrlRef = useRef(editItemImageUrl);
+  const editItemDescriptionRef = useRef(editItemDescription);
+  const editItemSourceUrlRef = useRef(editItemSourceUrl);
   const editTierLabelRef = useRef(editTierLabel);
   const selectionRef = useRef(selection);
   const commitDraftsRef = useRef<() => void>(() => {});
+  const leaveRef = useRef<() => void>(() => {});
   const windowDragRef = useRef<{
     pointerId: number;
     onMove: (event: PointerEvent) => void;
@@ -422,6 +474,8 @@ export function TierListEditor({
   descriptionDraftRef.current = descriptionDraft;
   editItemTitleRef.current = editItemTitle;
   editItemImageUrlRef.current = editItemImageUrl;
+  editItemDescriptionRef.current = editItemDescription;
+  editItemSourceUrlRef.current = editItemSourceUrl;
   editTierLabelRef.current = editTierLabel;
   selectionRef.current = selection;
 
@@ -439,13 +493,22 @@ export function TierListEditor({
       if (item) {
         const itemTitle = editItemTitleRef.current.trim() || item.title;
         const imageDraft = editItemImageUrlRef.current.trim();
-        const imageOk = imageDraft === "" || isValidImageUrl(imageDraft);
+        const imageOk = imageDraft === "" || isItemImageRef(imageDraft);
         const imageUrl = imageOk ? imageDraft : item.imageUrl;
-        if (itemTitle !== item.title || imageUrl !== item.imageUrl) {
+        const description = editItemDescriptionRef.current.trim().slice(0, MAX_ITEM_TEXT);
+        const sourceDraft = editItemSourceUrlRef.current.trim();
+        const sourceOk = sourceDraft === "" || isValidImageUrl(sourceDraft);
+        const sourceUrl = sourceOk ? sourceDraft : item.sourceUrl;
+        if (
+          itemTitle !== item.title ||
+          imageUrl !== item.imageUrl ||
+          description !== item.description ||
+          sourceUrl !== item.sourceUrl
+        ) {
           next = tierListReducer(next, {
             type: "update-item",
             itemId: selected.id,
-            changes: { title: itemTitle, imageUrl },
+            changes: { title: itemTitle, imageUrl, description, sourceUrl },
           });
         }
       }
@@ -484,6 +547,12 @@ export function TierListEditor({
   }
 
   commitDraftsRef.current = commitDrafts;
+
+  useEffect(() => {
+    return () => {
+      leaveRef.current();
+    };
+  }, []);
 
   useEffect(() => {
     if (publishedRef.current === state) {
@@ -623,8 +692,12 @@ export function TierListEditor({
       }
       editItemTitleRef.current = item.title;
       editItemImageUrlRef.current = item.imageUrl;
+      editItemDescriptionRef.current = item.description;
+      editItemSourceUrlRef.current = item.sourceUrl;
       setEditItemTitle(item.title);
       setEditItemImageUrl(item.imageUrl);
+      setEditItemDescription(item.description);
+      setEditItemSourceUrl(item.sourceUrl);
       setEditItemError("");
     } else {
       const tier = stateRef.current.tiers.find((currentTier) => currentTier.id === next.id);
@@ -643,14 +716,22 @@ export function TierListEditor({
     descriptionDraftRef.current = initialState.description;
     editItemTitleRef.current = "";
     editItemImageUrlRef.current = "";
+    editItemDescriptionRef.current = "";
+    editItemSourceUrlRef.current = "";
     editTierLabelRef.current = "";
     selectionRef.current = null;
+    const draftImage = newItemImageUrlRef.current;
+    const draftOnItem = hostedImageUsed(stateRef.current, draftImage);
     commit({ type: "reset", state: initialState });
     setTitleDraft(initialState.title);
     setDescriptionDraft(initialState.description);
     setNewTierLabel("");
     setNewItemTitle("");
+    newItemImageUrlRef.current = "";
     setNewItemImageUrl("");
+    if (!draftOnItem) {
+      releaseDraftUpload(draftImage, stateRef.current);
+    }
     setItemFormError("");
     setTierFormError("");
     setSelection(null);
@@ -877,19 +958,62 @@ export function TierListEditor({
       setItemFormError("Title is required.");
       return;
     }
-    if (imageUrl && !isValidImageUrl(imageUrl)) {
+    if (imageUrl && !isItemImageRef(imageUrl)) {
       setItemFormError("Image URL must start with http:// or https://.");
       return;
     }
 
     commit({
       type: "add-item",
-      item: { id: createId("item"), title, imageUrl },
+      item: { id: createId("item"), title, imageUrl, description: "", sourceUrl: "" },
     });
     setNewItemTitle("");
-    setNewItemImageUrl("");
+    replaceNewItemImage("");
     setItemFormError("");
   }
+
+  function hostedImageUsed(board: TierListState, imageUrl: string) {
+    if (!listId) {
+      return false;
+    }
+    const imageId = listImageId(listId, imageUrl);
+    if (!imageId) {
+      return false;
+    }
+    const cited = `/api/lists/${listId}/images/${imageId}`;
+    return (
+      Object.values(board.itemsById).some((item) => item.imageUrl === cited) ||
+      editItemImageUrlRef.current.trim() === cited
+    );
+  }
+
+  function releaseDraftUpload(imageUrl: string, board: TierListState) {
+    if (!listId || hostedImageUsed(board, imageUrl)) {
+      return;
+    }
+    const imageId = listImageId(listId, imageUrl);
+    if (!imageId) {
+      return;
+    }
+    void fetch(`/api/lists/${listId}/images/${imageId}`, { method: "DELETE" });
+  }
+
+  function replaceNewItemImage(imageUrl: string) {
+    const previous = newItemImageUrlRef.current;
+    newItemImageUrlRef.current = imageUrl;
+    setNewItemImageUrl(imageUrl);
+    if (previous !== imageUrl) {
+      releaseDraftUpload(previous, stateRef.current);
+    }
+  }
+
+  leaveRef.current = () => {
+    const next = withDrafts(stateRef.current);
+    if (next !== stateRef.current) {
+      onChangeRef.current?.(next);
+    }
+    releaseDraftUpload(newItemImageUrlRef.current, next);
+  };
 
   function saveSelectedItem(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -899,19 +1023,30 @@ export function TierListEditor({
 
     const nextTitle = editItemTitle.trim();
     const nextImageUrl = editItemImageUrl.trim();
+    const nextDescription = editItemDescription.trim();
+    const nextSourceUrl = editItemSourceUrl.trim();
     if (!nextTitle) {
       setEditItemError("Title is required.");
       return;
     }
-    if (nextImageUrl && !isValidImageUrl(nextImageUrl)) {
+    if (nextImageUrl && !isItemImageRef(nextImageUrl)) {
       setEditItemError("Image URL must start with http:// or https://.");
+      return;
+    }
+    if (nextSourceUrl && !isValidImageUrl(nextSourceUrl)) {
+      setEditItemError("Source URL must start with http:// or https://.");
       return;
     }
 
     commit({
       type: "update-item",
       itemId: selection.id,
-      changes: { title: nextTitle, imageUrl: nextImageUrl },
+      changes: {
+        title: nextTitle,
+        imageUrl: nextImageUrl,
+        description: nextDescription.slice(0, MAX_ITEM_TEXT),
+        sourceUrl: nextSourceUrl,
+      },
     });
     setEditItemError("");
     setAnnouncement(`${nextTitle} updated.`);
@@ -930,6 +1065,50 @@ export function TierListEditor({
     }
 
     moveItem(selectedItem.id, from, to, getCollectionIds(state, to).length);
+  }
+
+  function addCatalogHit(hit: CatalogHit) {
+    commit({
+      type: "add-item",
+      item: {
+        id: createId("item"),
+        title: hit.title,
+        imageUrl: hit.imageUrl,
+        description: hit.description,
+        sourceUrl: hit.sourceUrl,
+      },
+    });
+    setAnnouncement(`${hit.title} added to unranked.`);
+  }
+
+  async function searchGames(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const query = gameQuery.trim();
+    if (query.length < 2) {
+      setGameError("Enter at least 2 characters.");
+      return;
+    }
+    setGameBusy(true);
+    setGameError("");
+    try {
+      const response = await fetch(`/api/igdb/search?q=${encodeURIComponent(query)}`);
+      const payload: unknown = await response.json().catch(() => null);
+      const hits = readCatalogHits(payload);
+      if (!response.ok || !hits) {
+        setGameHits([]);
+        setGameError(readError(payload) ?? "Game search failed.");
+        return;
+      }
+      setGameHits(hits);
+      if (hits.length === 0) {
+        setGameError("No games found.");
+      }
+    } catch {
+      setGameHits([]);
+      setGameError("Game search failed.");
+    } finally {
+      setGameBusy(false);
+    }
   }
 
   function deleteSelectedItem() {
@@ -1201,11 +1380,48 @@ export function TierListEditor({
                     Image URL
                     <input
                       className={FIELD}
-                      type="url"
                       value={editItemImageUrl}
                       onChange={(event) => {
                         editItemImageUrlRef.current = event.currentTarget.value;
                         setEditItemImageUrl(event.currentTarget.value);
+                        commitDrafts();
+                      }}
+                      placeholder="Optional — https://…"
+                      tabIndex={selectedItem ? 0 : -1}
+                    />
+                  </label>
+                  {listId && selectedItem ? (
+                    <ItemImagePicker
+                      listId={listId}
+                      onImage={(imageUrl) => {
+                        editItemImageUrlRef.current = imageUrl;
+                        setEditItemImageUrl(imageUrl);
+                        commitDrafts();
+                      }}
+                    />
+                  ) : null}
+                  <label className={LABEL}>
+                    Description
+                    <textarea
+                      className={`${FIELD} h-auto min-h-20 py-2`}
+                      value={editItemDescription}
+                      maxLength={MAX_ITEM_TEXT}
+                      onChange={(event) => {
+                        editItemDescriptionRef.current = event.currentTarget.value;
+                        setEditItemDescription(event.currentTarget.value);
+                        commitDrafts();
+                      }}
+                      tabIndex={selectedItem ? 0 : -1}
+                    />
+                  </label>
+                  <label className={LABEL}>
+                    Source URL
+                    <input
+                      className={FIELD}
+                      value={editItemSourceUrl}
+                      onChange={(event) => {
+                        editItemSourceUrlRef.current = event.currentTarget.value;
+                        setEditItemSourceUrl(event.currentTarget.value);
                         commitDrafts();
                       }}
                       placeholder="Optional — https://…"
@@ -1340,12 +1556,12 @@ export function TierListEditor({
                 Image URL
                 <input
                   className={FIELD}
-                  type="url"
                   value={newItemImageUrl}
-                  onChange={(event) => setNewItemImageUrl(event.currentTarget.value)}
+                  onChange={(event) => replaceNewItemImage(event.currentTarget.value)}
                   placeholder="Optional — https://…"
                 />
               </label>
+              {listId ? <ItemImagePicker listId={listId} onImage={replaceNewItemImage} /> : null}
               {itemFormError ? (
                 <p role="alert" className="font-body text-xs text-ink">
                   {itemFormError}
@@ -1355,6 +1571,57 @@ export function TierListEditor({
                 Add to unranked
               </button>
             </form>
+
+            {gameSearch ? (
+              <form
+                className="grid gap-3 border-t border-line pt-6"
+                onSubmit={(event) => {
+                  void searchGames(event);
+                }}
+              >
+                <h2 className="font-display text-xl leading-none">Search games</h2>
+                <label className={LABEL}>
+                  IGDB
+                  <input
+                    className={FIELD}
+                    value={gameQuery}
+                    onChange={(event) => setGameQuery(event.currentTarget.value)}
+                    placeholder="Game title"
+                  />
+                </label>
+                {gameError ? (
+                  <p role="alert" className="font-body text-xs text-ink">
+                    {gameError}
+                  </p>
+                ) : null}
+                <button type="submit" className={BTN_PRIMARY} disabled={gameBusy}>
+                  {gameBusy ? "Searching…" : "Search"}
+                </button>
+                {gameHits.length > 0 ? (
+                  <ul className="grid gap-2">
+                    {gameHits.map((hit) => (
+                      <li key={`${hit.sourceUrl}-${hit.title}`}>
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 border border-line bg-paper p-1 text-left"
+                          onClick={() => addCatalogHit(hit)}
+                        >
+                          <Image
+                            src={hit.imageUrl}
+                            alt=""
+                            width={40}
+                            height={40}
+                            unoptimized
+                            className="size-10 shrink-0 object-cover"
+                          />
+                          <span className="truncate font-body text-sm font-bold">{hit.title}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </form>
+            ) : null}
 
             <form className="grid gap-3 border-t border-line pt-6" onSubmit={addTier}>
               <h2 className="font-display text-xl leading-none">Add a tier</h2>

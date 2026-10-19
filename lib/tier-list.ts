@@ -11,10 +11,17 @@ export const TIER_COLORS = [
 
 export type TierColor = (typeof TIER_COLORS)[number];
 
+export const MAX_ITEM_TEXT = 2000;
+
+const HOSTED_LIST_IMAGE =
+  /^\/api\/lists\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/images\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 export type Item = {
   id: string;
   title: string;
   imageUrl: string;
+  description: string;
+  sourceUrl: string;
 };
 
 export type Tier = {
@@ -44,7 +51,11 @@ export type MoveItemInput = {
 export type TierListAction =
   | { type: "update-list"; changes: Partial<Pick<TierListState, "title" | "description">> }
   | { type: "add-item"; item: Item }
-  | { type: "update-item"; itemId: string; changes: Partial<Pick<Item, "title" | "imageUrl">> }
+  | {
+      type: "update-item";
+      itemId: string;
+      changes: Partial<Pick<Item, "title" | "imageUrl" | "description" | "sourceUrl">>;
+    }
   | { type: "remove-item"; itemId: string }
   | { type: "move-item"; input: MoveItemInput }
   | { type: "add-tier"; tier: Tier }
@@ -62,12 +73,25 @@ export function isValidImageUrl(value: string) {
   }
 }
 
+export function isHostedListImage(value: string) {
+  return HOSTED_LIST_IMAGE.test(value);
+}
+
+export function isItemImageRef(value: string) {
+  return isValidImageUrl(value) || isHostedListImage(value);
+}
+
 function isValidItem(item: Item) {
   const imageUrl = item.imageUrl.trim();
+  const description = item.description.trim();
+  const sourceUrl = item.sourceUrl.trim();
   return (
     item.id.trim() !== "" &&
     item.title.trim() !== "" &&
-    (imageUrl === "" || isValidImageUrl(imageUrl))
+    description.length <= MAX_ITEM_TEXT &&
+    sourceUrl.length <= MAX_ITEM_TEXT &&
+    (imageUrl === "" || isItemImageRef(imageUrl)) &&
+    (sourceUrl === "" || isValidImageUrl(sourceUrl))
   );
 }
 
@@ -130,7 +154,13 @@ export function addItem(state: TierListState, item: Item) {
     ...state,
     itemsById: {
       ...state.itemsById,
-      [item.id]: { ...item, title: item.title.trim(), imageUrl: item.imageUrl.trim() },
+      [item.id]: {
+        ...item,
+        title: item.title.trim(),
+        imageUrl: item.imageUrl.trim(),
+        description: item.description.trim(),
+        sourceUrl: item.sourceUrl.trim(),
+      },
     },
     unrankedItemIds: [...state.unrankedItemIds, item.id],
   };
@@ -139,7 +169,7 @@ export function addItem(state: TierListState, item: Item) {
 export function updateItem(
   state: TierListState,
   itemId: string,
-  changes: Partial<Pick<Item, "title" | "imageUrl">>,
+  changes: Partial<Pick<Item, "title" | "imageUrl" | "description" | "sourceUrl">>,
 ) {
   const currentItem = state.itemsById[itemId];
   if (!currentItem) {
@@ -151,6 +181,8 @@ export function updateItem(
     ...changes,
     title: (changes.title ?? currentItem.title).trim(),
     imageUrl: (changes.imageUrl ?? currentItem.imageUrl).trim(),
+    description: (changes.description ?? currentItem.description).trim(),
+    sourceUrl: (changes.sourceUrl ?? currentItem.sourceUrl).trim(),
   };
 
   if (!isValidItem(nextItem)) {

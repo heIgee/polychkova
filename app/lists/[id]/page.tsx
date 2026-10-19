@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { OwnedListEditor } from "@/components/owned-list-editor";
 import { getDb } from "@/lib/db/client";
 import { lists } from "@/lib/db/schema";
+import { igdbConfigured } from "@/lib/igdb";
 import { assembleTierList, parseStoredList } from "@/lib/list-board";
 
 export const metadata: Metadata = {
@@ -38,6 +39,7 @@ export default async function OwnedListPage({ params }: { params: Promise<{ id: 
       listId={row.id}
       initialState={assembleTierList(parsed.list)}
       initialVisibility={parsed.list.visibility}
+      gameSearch={igdbConfigured()}
     />
   );
 }

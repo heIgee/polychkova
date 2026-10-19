@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 import { closeDb, getDb } from "./client";
-import { lists, users } from "./schema";
+import { listImages, lists, users } from "./schema";
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 
@@ -61,9 +61,18 @@ describe("list table", () => {
         visibility: "unlisted",
         board: { tiers: [], itemsById: {}, unrankedItemIds: [] },
       });
+      const imageId = crypto.randomUUID();
+      await db.insert(listImages).values({
+        id: imageId,
+        listId,
+        bytes: Buffer.from([0x89, 0x50, 0x4e, 0x47]),
+        type: "image/png",
+      });
       await db.delete(users).where(eq(users.id, userId));
       const rows = await db.select().from(lists).where(eq(lists.id, listId));
+      const images = await db.select().from(listImages).where(eq(listImages.id, imageId));
       expect(rows).toHaveLength(0);
+      expect(images).toHaveLength(0);
     } finally {
       await db.delete(lists).where(eq(lists.id, listId));
       await db.delete(users).where(eq(users.id, userId));

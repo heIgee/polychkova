@@ -14,10 +14,12 @@ export function OwnedListEditor({
   listId,
   initialState,
   initialVisibility,
+  gameSearch,
 }: {
   listId: string;
   initialState: TierListState;
   initialVisibility: ListVisibility;
+  gameSearch: boolean;
 }) {
   const [visibility, setVisibility] = useState(initialVisibility);
   const [status, setStatus] = useState<SaveKind>("saved");
@@ -124,6 +126,8 @@ export function OwnedListEditor({
       }}
       saveStatus={{ kind: status, message: error }}
       onRetrySave={status === "error" ? retry : undefined}
+      listId={listId}
+      gameSearch={gameSearch}
     />
   );
 }

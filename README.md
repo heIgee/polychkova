@@ -19,6 +19,8 @@ pnpm install
 
 Copy `.env.example` to `.env.local`. Sign-in and deploy steps are in [AUTH_SETUP.md](AUTH_SETUP.md). `pnpm db:migrate` reads `.env.local` when `DIRECT_URL` is not already set. Keep secrets server-only.
 
+`IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` are a Twitch application’s client credentials. When both are set, signed-in list editors can search IGDB. Leave them empty to hide game search.
+
 ## Scripts
 
 | Command                       | Purpose                                            |
@@ -50,7 +52,12 @@ a reset back to the demo seed. Nothing on that page is saved.
 ## Lists
 
 `/lists` is private to the signed-in user. Each list is one database row: title, description,
-visibility, and a single JSON board (`tiers`, `itemsById`, `unrankedItemIds`). Edits autosave.
+visibility, and a single JSON board (`tiers`, `itemsById`, `unrankedItemIds`). Items may include a
+description and a source URL. Edits autosave.
+
+An uploaded item image is cropped to a square in the browser, encoded as WebP, and stored as bytes
+on `list_image`, owned by that list. The board stores `/api/lists/{listId}/images/{imageId}`.
+A save removes uploaded images that were on the previously saved board and are absent from the board being saved. An upload that is still only in the add-item field is kept until that field is cleared or the page is left. Deleting the list deletes its images.
 
 ## Layout
 
