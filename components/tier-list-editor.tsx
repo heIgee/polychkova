@@ -1224,29 +1224,39 @@ export function TierListEditor({
                     onBlur={commitMetadata}
                   />
                 </label>
-                {visibilitySlot ? (
-                  <label className={LABEL}>
-                    Visibility
-                    <select
-                      aria-label="List visibility"
-                      className={FIELD}
-                      value={visibilitySlot.visibility}
-                      onChange={(event) => {
-                        const value = event.currentTarget.value;
-                        if (value !== "unlisted" && value !== "public") {
-                          return;
-                        }
-                        commitDrafts();
-                        visibilitySlot.onVisibilityChange(value);
-                      }}
-                    >
-                      <option value="unlisted">Unlisted</option>
-                      <option value="public">Public</option>
-                    </select>
-                  </label>
-                ) : null}
               </div>
             </details>
+            {visibilitySlot ? (
+              <label className={`${LABEL} mt-4 max-w-xs`}>
+                Visibility
+                <select
+                  aria-label="List visibility"
+                  className={FIELD}
+                  value={visibilitySlot.visibility}
+                  onChange={(event) => {
+                    const value = event.currentTarget.value;
+                    if (value !== "unlisted" && value !== "public") {
+                      return;
+                    }
+                    commitDrafts();
+                    visibilitySlot.onVisibilityChange(value);
+                  }}
+                >
+                  <option value="unlisted">Unlisted — link only</option>
+                  <option value="public">Public — on Discover</option>
+                </select>
+              </label>
+            ) : null}
+            {listId ? (
+              <p className="mt-3 max-w-xl font-body text-sm text-muted">
+                <a
+                  href={`/l/${listId}`}
+                  className="font-bold text-ink underline-offset-4 hover:underline"
+                >
+                  Share page
+                </a>
+              </p>
+            ) : null}
           </div>
           {saveStatus ? (
             <div className="flex items-center gap-3">

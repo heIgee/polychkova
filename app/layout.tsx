@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Archivo_Black, Inter } from "next/font/google";
+import { siteOrigin } from "@/lib/site";
 import "./globals.css";
 
 const displayFont = Archivo_Black({
@@ -14,6 +15,7 @@ const bodyFont = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: siteOrigin(),
   title: {
     default: "Polychkova",
     template: "%s | Polychkova",

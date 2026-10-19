@@ -3,15 +3,6 @@
 Category-agnostic tier lists with account ownership, flexible item sources, and live shareable
 pages.
 
-## 3. Sharing, discovery, and reuse
-
-- Publish lists for discovery.
-- Open public and unlisted read-only links without an account.
-- Inspect item titles, images, source attribution, and available catalog descriptions.
-- Generate rich previews for Discord and other social links.
-- Browse recent public lists and search them by title.
-- Sign in to fork a shared list; copy its tiers and items into a fresh unranked pool.
-
 ## After the first release
 
 - Add another optional domain catalog when actual use identifies the next useful source.

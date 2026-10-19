@@ -7,10 +7,12 @@ import { getDb } from "@/lib/db/client";
 import { listImages, lists } from "@/lib/db/schema";
 import {
   createDefaultBoard,
+  forkBoard,
   hasForeignListImage,
   parseListSave,
   parseStoredList,
   removedListImageIds,
+  retainedListImageIds,
 } from "@/lib/list-board";
 
 async function requireUserId() {
@@ -34,6 +36,77 @@ export async function createList() {
     board: createDefaultBoard(),
   });
   redirect(`/lists/${id}`);
+}
+
+export async function publishList(formData: FormData) {
+  const listId = formData.get("listId");
+  if (typeof listId !== "string" || listId === "") {
+    redirect("/lists");
+  }
+  const userId = await requireUserId();
+  const [updated] = await getDb()
+    .update(lists)
+    .set({ visibility: "public", updatedAt: new Date() })
+    .where(and(eq(lists.id, listId), eq(lists.userId, userId)))
+    .returning({ id: lists.id });
+  if (!updated) {
+    redirect("/lists");
+  }
+  redirect(`/l/${listId}`);
+}
+
+export async function forkList(formData: FormData) {
+  const listId = formData.get("listId");
+  if (typeof listId !== "string" || listId === "") {
+    redirect("/discover");
+  }
+
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) {
+    redirect(`/sign-in?next=${encodeURIComponent(`/l/${listId}`)}`);
+  }
+
+  const [row] = await getDb().select().from(lists).where(eq(lists.id, listId));
+  if (!row) {
+    redirect("/discover");
+  }
+  const parsed = parseStoredList(row);
+  if (!parsed.ok) {
+    redirect("/discover");
+  }
+
+  const nextId = crypto.randomUUID();
+  const cited = retainedListImageIds(parsed.list.board, listId);
+  const copies =
+    cited.length === 0
+      ? []
+      : await getDb()
+          .select()
+          .from(listImages)
+          .where(and(eq(listImages.listId, listId), inArray(listImages.id, cited)));
+  const imageIds = new Map<string, string>();
+  const imageRows = copies.map((copy) => {
+    const id = crypto.randomUUID();
+    imageIds.set(copy.id, id);
+    return { id, listId: nextId, bytes: copy.bytes, type: copy.type };
+  });
+  const board = forkBoard(parsed.list.board, listId, nextId, imageIds);
+
+  await getDb().transaction(async (tx) => {
+    await tx.insert(lists).values({
+      id: nextId,
+      userId,
+      title: parsed.list.title,
+      description: parsed.list.description,
+      visibility: "unlisted",
+      board,
+    });
+    if (imageRows.length > 0) {
+      await tx.insert(listImages).values(imageRows);
+    }
+  });
+  redirect(`/lists/${nextId}`);
 }
 
 export async function deleteList(listId: string) {

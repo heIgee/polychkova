@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assembleTierList,
+  forkBoard,
   hasForeignListImage,
   type ListBoard,
   parseListSave,
@@ -169,6 +170,65 @@ describe("list board", () => {
     expect(hasForeignListImage(parsed.list.board, "33333333-3333-4333-8333-333333333333")).toBe(
       true,
     );
+  });
+
+  it("forks tiers empty and parks every item in the unranked pool", () => {
+    const sourceId = "11111111-1111-4111-8111-111111111111";
+    const nextId = "33333333-3333-4333-8333-333333333333";
+    const imageId = "22222222-2222-4222-8222-222222222222";
+    const nextImageId = "44444444-4444-4444-8444-444444444444";
+    const source: ListBoard = {
+      tiers: [
+        { id: "s", label: "S", color: "#ef4444", itemIds: ["one"] },
+        { id: "a", label: "A", color: "#f97316", itemIds: ["two"] },
+      ],
+      itemsById: {
+        one: {
+          id: "one",
+          title: "One",
+          imageUrl: `/api/lists/${sourceId}/images/${imageId}`,
+          description: "First",
+          sourceUrl: "https://www.igdb.com/games/one",
+        },
+        two: {
+          id: "two",
+          title: "Two",
+          imageUrl: "https://example.com/two.jpg",
+          description: "",
+          sourceUrl: "",
+        },
+        three: {
+          id: "three",
+          title: "Three",
+          imageUrl: `/api/lists/${sourceId}/images/55555555-5555-4555-8555-555555555555`,
+          description: "",
+          sourceUrl: "",
+        },
+      },
+      unrankedItemIds: ["three"],
+    };
+    const ids = ["item-1", "item-2", "item-3", "tier-s", "tier-a"];
+    const forked = forkBoard(source, sourceId, nextId, new Map([[imageId, nextImageId]]), () => {
+      const id = ids.shift();
+      if (!id) {
+        throw new Error("missing id");
+      }
+      return id;
+    });
+
+    expect(forked.tiers).toEqual([
+      { id: "tier-s", label: "S", color: "#ef4444", itemIds: [] },
+      { id: "tier-a", label: "A", color: "#f97316", itemIds: [] },
+    ]);
+    expect(forked.unrankedItemIds).toEqual(["item-1", "item-2", "item-3"]);
+    expect(forked.itemsById["item-1"]).toMatchObject({
+      title: "One",
+      imageUrl: `/api/lists/${nextId}/images/${nextImageId}`,
+      description: "First",
+      sourceUrl: "https://www.igdb.com/games/one",
+    });
+    expect(forked.itemsById["item-2"]?.imageUrl).toBe("https://example.com/two.jpg");
+    expect(forked.itemsById["item-3"]?.imageUrl).toBe("");
   });
 });
 

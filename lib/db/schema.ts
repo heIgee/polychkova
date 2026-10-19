@@ -69,6 +69,7 @@ export const lists = pgTable(
   },
   (list) => [
     index("list_userId_updatedAt_idx").on(list.userId, list.updatedAt),
+    index("list_visibility_updatedAt_idx").on(list.visibility, list.updatedAt),
     check("list_visibility_check", sql`${list.visibility} in ('unlisted', 'public')`),
   ],
 );

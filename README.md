@@ -59,6 +59,20 @@ An uploaded item image is cropped to a square in the browser, encoded as WebP, a
 on `list_image`, owned by that list. The board stores `/api/lists/{listId}/images/{imageId}`.
 A save removes uploaded images that were on the previously saved board and are absent from the board being saved. An upload that is still only in the add-item field is kept until that field is cleared or the page is left. Deleting the list deletes its images.
 
+## Sharing
+
+`/l/{id}` is a read-only page for both public and unlisted lists. No account is required. Selecting
+an item shows its image, description, and source. Public lists are indexed and listed on `/discover`,
+which searches titles. Unlisted lists stay off Discover and send `noindex`. The page sets Open Graph
+and Twitter card metadata, including a generated preview image.
+
+A list appears on Discover when its visibility is Public. New lists start unlisted. The editor’s
+visibility control autosaves that choice, and the owner can also publish from the share page.
+
+Fork is for someone else’s list. It copies that list onto the signed-in account as a new unlisted
+list: the same tiers, every item in the unranked pool, and copies of uploaded images. External image
+URLs are kept as they are. Sign-in accepts a `next` path so a signed-out fork returns to that list.
+
 ## Layout
 
 ```
@@ -72,5 +86,5 @@ e2e/           Playwright (later)
 
 `.github/workflows/ci.yml` runs two jobs on `ubuntu-latest`. `check` is install → check → knip → build, with a dummy `AUTH_SECRET` and no database. `test` boots Postgres, runs `pnpm db:migrate`, then coverage.
 
-The homepage links to the editor. Signed-in users also get My Lists. Product features are planned in [ROADMAP.md](ROADMAP.md)
-and will be added in focused increments.
+The homepage links to the editor, Discover, and My Lists for a signed-in user. Product features still
+planned are in [ROADMAP.md](ROADMAP.md).

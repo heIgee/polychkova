@@ -1,0 +1,1 @@
+CREATE INDEX "list_visibility_updatedAt_idx" ON "list" USING btree ("visibility","updatedAt");

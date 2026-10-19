@@ -72,6 +72,45 @@ export function removedListImageIds(before: ListBoard, after: ListBoard, listId:
   return [...new Set(retainedListImageIds(before, listId))].filter((imageId) => !kept.has(imageId));
 }
 
+export function forkBoard(
+  board: ListBoard,
+  sourceListId: string,
+  nextListId: string,
+  imageIds: ReadonlyMap<string, string>,
+  createId: () => string = () => crypto.randomUUID(),
+): ListBoard {
+  const itemsById: Record<string, Item> = {};
+  const unrankedItemIds: string[] = [];
+  const orderedIds = [...board.tiers.flatMap((tier) => tier.itemIds), ...board.unrankedItemIds];
+
+  for (const oldId of orderedIds) {
+    const item = board.itemsById[oldId];
+    if (!item) {
+      continue;
+    }
+    const id = createId();
+    const hosted = listImageId(sourceListId, item.imageUrl);
+    let imageUrl = item.imageUrl;
+    if (hosted) {
+      const nextImageId = imageIds.get(hosted);
+      imageUrl = nextImageId ? `/api/lists/${nextListId}/images/${nextImageId}` : "";
+    }
+    itemsById[id] = { ...item, id, imageUrl };
+    unrankedItemIds.push(id);
+  }
+
+  return {
+    tiers: board.tiers.map((tier) => ({
+      id: createId(),
+      label: tier.label,
+      color: tier.color,
+      itemIds: [],
+    })),
+    itemsById,
+    unrankedItemIds,
+  };
+}
+
 export function hasForeignListImage(board: ListBoard, listId: string) {
   const prefix = `/api/lists/${listId}/images/`;
   return Object.values(board.itemsById).some(

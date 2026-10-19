@@ -4,6 +4,7 @@
     "app/**/page.tsx",
     "app/**/layout.tsx",
     "app/**/route.ts",
+    "app/**/opengraph-image.tsx",
     "lib/**/*.ts",
     "!lib/**/*.test.ts",
     "auth.ts"

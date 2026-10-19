@@ -11,16 +11,27 @@ export async function GET(
   const { id: listId, imageId } = await context.params;
   const session = await auth();
   const userId = session?.user?.id;
-  if (!userId) {
+
+  const [list] = await getDb()
+    .select({
+      userId: lists.userId,
+      title: lists.title,
+      description: lists.description,
+      visibility: lists.visibility,
+      board: lists.board,
+    })
+    .from(lists)
+    .where(eq(lists.id, listId));
+  if (!list) {
     return new Response(null, { status: 404 });
   }
 
-  const [owned] = await getDb()
-    .select({ id: lists.id })
-    .from(lists)
-    .where(and(eq(lists.id, listId), eq(lists.userId, userId)));
-  if (!owned) {
-    return new Response(null, { status: 404 });
+  const owner = Boolean(userId) && list.userId === userId;
+  if (!owner) {
+    const stored = parseStoredList(list);
+    if (!stored.ok || !retainedListImageIds(stored.list.board, listId).includes(imageId)) {
+      return new Response(null, { status: 404 });
+    }
   }
 
   const [row] = await getDb()
@@ -34,7 +45,9 @@ export async function GET(
   return new Response(new Uint8Array(row.bytes), {
     headers: {
       "Content-Type": row.type,
-      "Cache-Control": "private, max-age=31536000, immutable",
+      "Cache-Control": owner
+        ? "private, max-age=31536000, immutable"
+        : "public, max-age=31536000, immutable",
     },
   });
 }

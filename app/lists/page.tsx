@@ -76,6 +76,12 @@ export default async function ListsPage() {
                     </time>
                   </span>
                 </a>
+                <a
+                  href={`/l/${row.id}`}
+                  className="font-body text-sm font-bold underline-offset-4 hover:underline"
+                >
+                  View
+                </a>
                 <DeleteListButton listId={row.id} />
               </li>
             ))}

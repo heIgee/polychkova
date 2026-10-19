@@ -32,6 +32,12 @@ export default async function Home() {
               >
                 Try the editor →
               </a>
+              <a
+                href="/discover"
+                className="inline-flex border-4 border-line bg-panel px-5 py-3 font-body text-sm font-bold shadow-[6px_6px_0_var(--line)] transition-transform hover:translate-x-1 hover:translate-y-1 hover:shadow-[4px_4px_0_var(--line)]"
+              >
+                Discover
+              </a>
               {signedIn ? (
                 <a
                   href="/lists"

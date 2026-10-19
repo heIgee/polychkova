@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { signIn } from "@/auth";
+import { safeNextPath } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Sign in",
@@ -58,9 +59,10 @@ const signInErrors: Record<string, string> = {
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; next?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, next } = await searchParams;
+  const redirectTo = safeNextPath(next);
   const message = error ? (signInErrors[error] ?? signInErrors.Default) : null;
 
   return (
@@ -85,7 +87,7 @@ export default async function SignInPage({
           <form
             action={async () => {
               "use server";
-              await signIn("discord", { redirectTo: "/account" });
+              await signIn("discord", { redirectTo });
             }}
           >
             <button type="submit" className={primaryButton}>
@@ -96,7 +98,7 @@ export default async function SignInPage({
           <form
             action={async () => {
               "use server";
-              await signIn("google", { redirectTo: "/account" });
+              await signIn("google", { redirectTo });
             }}
           >
             <button type="submit" className={secondaryButton}>
