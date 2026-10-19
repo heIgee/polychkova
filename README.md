@@ -43,10 +43,14 @@ The session cookie is a JWT. Users and OAuth accounts are stored in Postgres. A 
 
 ## Editor slice
 
-Open `/demo/edit` to try the in-memory tier-list editor. It supports adding items by title with an
-optional image URL, editing and deleting items, tier management, drag-and-drop ranking, and a reset
-back to the demo seed. Changes are transient until persistence is added. The demo does not require
-an account.
+Open `/demo/edit` to try the tier-list editor without an account. It supports adding items by title
+with an optional image URL, editing and deleting items, tier management, drag-and-drop ranking, and
+a reset back to the demo seed. Nothing on that page is saved.
+
+## Lists
+
+`/lists` is private to the signed-in user. Each list is one database row: title, description,
+visibility, and a single JSON board (`tiers`, `itemsById`, `unrankedItemIds`). Edits autosave.
 
 ## Layout
 
@@ -61,5 +65,5 @@ e2e/           Playwright (later)
 
 `.github/workflows/ci.yml` runs two jobs on `ubuntu-latest`. `check` is install → check → knip → build, with a dummy `AUTH_SECRET` and no database. `test` boots Postgres, runs `pnpm db:migrate`, then coverage.
 
-The homepage links to the editor slice. Product features are planned in [ROADMAP.md](ROADMAP.md)
+The homepage links to the editor. Signed-in users also get My Lists. Product features are planned in [ROADMAP.md](ROADMAP.md)
 and will be added in focused increments.

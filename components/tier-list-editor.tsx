@@ -9,6 +9,7 @@ import {
   type Location,
   TIER_COLORS,
   type Tier,
+  type TierListAction,
   type TierListState,
   tierListReducer,
 } from "@/lib/tier-list";
@@ -26,7 +27,7 @@ const LABEL = "grid gap-1 font-body text-xs font-bold uppercase tracking-wide te
 const BTN_PRESS =
   "transition-transform hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0_var(--line)] active:translate-x-1 active:translate-y-1 active:shadow-none";
 const BTN_PRIMARY = `h-10 border-4 border-line bg-accent px-3 font-body text-sm font-bold text-accent-ink shadow-[4px_4px_0_var(--line)] ${BTN_PRESS}`;
-const BTN_SECONDARY = "h-10 border border-line bg-panel px-3 font-body text-sm font-bold";
+const BTN_SECONDARY = `h-10 border border-line bg-panel px-3 font-body text-sm font-bold shadow-[4px_4px_0_var(--line)] ${BTN_PRESS} disabled:pointer-events-none`;
 const DROP_TARGET = "ring-2 ring-inset ring-accent";
 const DRAG_SURFACE = "border-4 border-line bg-paper shadow-[8px_8px_0_var(--line)]";
 const SELECTION_MARK =
@@ -35,6 +36,16 @@ const INSPECTOR_PANEL = "col-start-1 row-start-1 grid gap-3";
 const INSPECTOR_HIDDEN = "invisible pointer-events-none";
 
 type EditorSelection = { kind: "item"; id: string } | { kind: "tier"; id: string };
+
+type VisibilitySlot = {
+  visibility: "unlisted" | "public";
+  onVisibilityChange: (visibility: "unlisted" | "public") => void;
+};
+
+type SaveStatus = {
+  kind: "saving" | "saved" | "error";
+  message?: string;
+};
 
 type DropHighlight = { kind: "item"; targetId: string } | { kind: "tier"; tierId: string } | null;
 
@@ -360,7 +371,19 @@ function resolveDropHighlight(drag: DragState, clientX: number, clientY: number)
   return tierId ? { kind: "tier", tierId } : null;
 }
 
-export function TierListEditor({ initialState }: { initialState: TierListState }) {
+export function TierListEditor({
+  initialState,
+  onChange,
+  visibilitySlot,
+  saveStatus,
+  onRetrySave,
+}: {
+  initialState: TierListState;
+  onChange?: (state: TierListState) => void;
+  visibilitySlot?: VisibilitySlot;
+  saveStatus?: SaveStatus;
+  onRetrySave?: () => void;
+}) {
   const [state, dispatch] = useReducer(tierListReducer, initialState);
   const [titleDraft, setTitleDraft] = useState(initialState.title);
   const [descriptionDraft, setDescriptionDraft] = useState(initialState.description);
@@ -379,12 +402,96 @@ export function TierListEditor({ initialState }: { initialState: TierListState }
   const [editTierLabel, setEditTierLabel] = useState("");
   const pressRef = useRef<PressState | null>(null);
   const stateRef = useRef(state);
+  const onChangeRef = useRef(onChange);
+  const publishedRef = useRef(state);
+  const titleDraftRef = useRef(titleDraft);
+  const descriptionDraftRef = useRef(descriptionDraft);
+  const editItemTitleRef = useRef(editItemTitle);
+  const editItemImageUrlRef = useRef(editItemImageUrl);
+  const editTierLabelRef = useRef(editTierLabel);
+  const selectionRef = useRef(selection);
+  const commitDraftsRef = useRef<() => void>(() => {});
   const windowDragRef = useRef<{
     pointerId: number;
     onMove: (event: PointerEvent) => void;
     onEnd: (event: PointerEvent) => void;
   } | null>(null);
   stateRef.current = state;
+  onChangeRef.current = onChange;
+  titleDraftRef.current = titleDraft;
+  descriptionDraftRef.current = descriptionDraft;
+  editItemTitleRef.current = editItemTitle;
+  editItemImageUrlRef.current = editItemImageUrl;
+  editTierLabelRef.current = editTierLabel;
+  selectionRef.current = selection;
+
+  function withDrafts(base: TierListState) {
+    let next = base;
+    const title = titleDraftRef.current.trim() || next.title;
+    const description = descriptionDraftRef.current.trim();
+    if (title !== next.title || description !== next.description) {
+      next = tierListReducer(next, { type: "update-list", changes: { title, description } });
+    }
+
+    const selected = selectionRef.current;
+    if (selected?.kind === "item") {
+      const item = next.itemsById[selected.id];
+      if (item) {
+        const itemTitle = editItemTitleRef.current.trim() || item.title;
+        const imageDraft = editItemImageUrlRef.current.trim();
+        const imageOk = imageDraft === "" || isValidImageUrl(imageDraft);
+        const imageUrl = imageOk ? imageDraft : item.imageUrl;
+        if (itemTitle !== item.title || imageUrl !== item.imageUrl) {
+          next = tierListReducer(next, {
+            type: "update-item",
+            itemId: selected.id,
+            changes: { title: itemTitle, imageUrl },
+          });
+        }
+      }
+    } else if (selected?.kind === "tier") {
+      const tier = next.tiers.find((currentTier) => currentTier.id === selected.id);
+      const label = editTierLabelRef.current.trim();
+      if (tier && label && label !== tier.label) {
+        next = tierListReducer(next, {
+          type: "update-tier",
+          tierId: selected.id,
+          changes: { label },
+        });
+      }
+    }
+
+    return next;
+  }
+
+  function publish(next: TierListState) {
+    if (next === stateRef.current) {
+      return;
+    }
+    stateRef.current = next;
+    publishedRef.current = next;
+    dispatch({ type: "reset", state: next });
+    onChangeRef.current?.(next);
+  }
+
+  function commitDrafts() {
+    publish(withDrafts(stateRef.current));
+  }
+
+  function commit(action: TierListAction) {
+    const base = action.type === "reset" ? stateRef.current : withDrafts(stateRef.current);
+    publish(tierListReducer(base, action));
+  }
+
+  commitDraftsRef.current = commitDrafts;
+
+  useEffect(() => {
+    if (publishedRef.current === state) {
+      return;
+    }
+    publishedRef.current = state;
+    onChangeRef.current?.(state);
+  }, [state]);
 
   function disarmWindowDrag() {
     const active = windowDragRef.current;
@@ -484,12 +591,16 @@ export function TierListEditor({ initialState }: { initialState: TierListState }
       if (target.closest("[data-editor-selectable]") || target.closest("[data-editor-sidebar]")) {
         return;
       }
+      commitDraftsRef.current();
+      selectionRef.current = null;
       setSelection(null);
       setEditItemError("");
     }
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        commitDraftsRef.current();
+        selectionRef.current = null;
         setSelection(null);
         setEditItemError("");
       }
@@ -504,26 +615,37 @@ export function TierListEditor({ initialState }: { initialState: TierListState }
   }, [selection]);
 
   function selectEntity(next: EditorSelection) {
+    commitDrafts();
     if (next.kind === "item") {
-      const item = state.itemsById[next.id];
+      const item = stateRef.current.itemsById[next.id];
       if (!item) {
         return;
       }
+      editItemTitleRef.current = item.title;
+      editItemImageUrlRef.current = item.imageUrl;
       setEditItemTitle(item.title);
       setEditItemImageUrl(item.imageUrl);
       setEditItemError("");
     } else {
-      const tier = state.tiers.find((currentTier) => currentTier.id === next.id);
+      const tier = stateRef.current.tiers.find((currentTier) => currentTier.id === next.id);
       if (!tier) {
         return;
       }
+      editTierLabelRef.current = tier.label;
       setEditTierLabel(tier.label);
     }
+    selectionRef.current = next;
     setSelection(next);
   }
 
   function resetEditor() {
-    dispatch({ type: "reset", state: initialState });
+    titleDraftRef.current = initialState.title;
+    descriptionDraftRef.current = initialState.description;
+    editItemTitleRef.current = "";
+    editItemImageUrlRef.current = "";
+    editTierLabelRef.current = "";
+    selectionRef.current = null;
+    commit({ type: "reset", state: initialState });
     setTitleDraft(initialState.title);
     setDescriptionDraft(initialState.description);
     setNewTierLabel("");
@@ -532,15 +654,12 @@ export function TierListEditor({ initialState }: { initialState: TierListState }
     setItemFormError("");
     setTierFormError("");
     setSelection(null);
-    setAnnouncement("Editor reset to the demo list.");
+    setAnnouncement(onChange ? "List reset." : "Editor reset to the demo list.");
   }
 
   function commitMetadata() {
-    dispatch({
-      type: "update-list",
-      changes: { title: titleDraft, description: descriptionDraft },
-    });
-    setTitleDraft(titleDraft.trim() || state.title);
+    commitDrafts();
+    setTitleDraft(titleDraftRef.current.trim() || stateRef.current.title);
   }
 
   function startPointerDrag(
@@ -714,7 +833,7 @@ export function TierListEditor({ initialState }: { initialState: TierListState }
   }
 
   function moveItem(itemId: string, from: Location, to: Location, index: number) {
-    dispatch({ type: "move-item", input: { itemId, from, to, index } });
+    commit({ type: "move-item", input: { itemId, from, to, index } });
     const item = stateRef.current.itemsById[itemId];
     if (item) {
       setAnnouncement(`${item.title} moved to ${locationLabel(stateRef.current, to)}.`);
@@ -722,7 +841,7 @@ export function TierListEditor({ initialState }: { initialState: TierListState }
   }
 
   function moveTier(tierId: string, index: number) {
-    dispatch({ type: "move-tier", tierId, index });
+    commit({ type: "move-tier", tierId, index });
     const tier = stateRef.current.tiers.find((currentTier) => currentTier.id === tierId);
     if (tier) {
       setAnnouncement(`${tier.label} tier moved.`);
@@ -737,7 +856,7 @@ export function TierListEditor({ initialState }: { initialState: TierListState }
       return;
     }
 
-    dispatch({
+    commit({
       type: "add-tier",
       tier: {
         id: createId("tier"),
@@ -763,7 +882,7 @@ export function TierListEditor({ initialState }: { initialState: TierListState }
       return;
     }
 
-    dispatch({
+    commit({
       type: "add-item",
       item: { id: createId("item"), title, imageUrl },
     });
@@ -789,7 +908,7 @@ export function TierListEditor({ initialState }: { initialState: TierListState }
       return;
     }
 
-    dispatch({
+    commit({
       type: "update-item",
       itemId: selection.id,
       changes: { title: nextTitle, imageUrl: nextImageUrl },
@@ -819,7 +938,8 @@ export function TierListEditor({ initialState }: { initialState: TierListState }
     }
 
     const item = state.itemsById[selection.id];
-    dispatch({ type: "remove-item", itemId: selection.id });
+    selectionRef.current = null;
+    commit({ type: "remove-item", itemId: selection.id });
     setSelection(null);
     if (item) {
       setAnnouncement(`${item.title} removed.`);
@@ -833,11 +953,12 @@ export function TierListEditor({ initialState }: { initialState: TierListState }
 
     const label = editTierLabel.trim();
     if (!label) {
+      editTierLabelRef.current = selectedTier.label;
       setEditTierLabel(selectedTier.label);
       return;
     }
 
-    dispatch({
+    commit({
       type: "update-tier",
       tierId: selection.id,
       changes: { label },
@@ -849,10 +970,10 @@ export function TierListEditor({ initialState }: { initialState: TierListState }
       return;
     }
 
-    dispatch({
+    commit({
       type: "update-tier",
       tierId: selection.id,
-      changes: { label: selectedTier.label, color },
+      changes: { color },
     });
   }
 
@@ -868,7 +989,8 @@ export function TierListEditor({ initialState }: { initialState: TierListState }
       return;
     }
 
-    dispatch({ type: "delete-tier", tierId: selection.id });
+    selectionRef.current = null;
+    commit({ type: "delete-tier", tierId: selection.id });
     setSelection(null);
     setAnnouncement(`${selectedTier.label} tier removed.`);
   }
@@ -901,7 +1023,11 @@ export function TierListEditor({ initialState }: { initialState: TierListState }
                     aria-label="List title"
                     className={FIELD}
                     value={titleDraft}
-                    onChange={(event) => setTitleDraft(event.currentTarget.value)}
+                    onChange={(event) => {
+                      titleDraftRef.current = event.currentTarget.value;
+                      setTitleDraft(event.currentTarget.value);
+                      commitDrafts();
+                    }}
                     onBlur={commitMetadata}
                   />
                 </label>
@@ -911,14 +1037,59 @@ export function TierListEditor({ initialState }: { initialState: TierListState }
                     aria-label="List description"
                     className={FIELD}
                     value={descriptionDraft}
-                    onChange={(event) => setDescriptionDraft(event.currentTarget.value)}
+                    onChange={(event) => {
+                      descriptionDraftRef.current = event.currentTarget.value;
+                      setDescriptionDraft(event.currentTarget.value);
+                      commitDrafts();
+                    }}
                     onBlur={commitMetadata}
                   />
                 </label>
+                {visibilitySlot ? (
+                  <label className={LABEL}>
+                    Visibility
+                    <select
+                      aria-label="List visibility"
+                      className={FIELD}
+                      value={visibilitySlot.visibility}
+                      onChange={(event) => {
+                        const value = event.currentTarget.value;
+                        if (value !== "unlisted" && value !== "public") {
+                          return;
+                        }
+                        commitDrafts();
+                        visibilitySlot.onVisibilityChange(value);
+                      }}
+                    >
+                      <option value="unlisted">Unlisted</option>
+                      <option value="public">Public</option>
+                    </select>
+                  </label>
+                ) : null}
               </div>
             </details>
           </div>
-          <p className="font-body text-xs text-muted">Demo — not saved</p>
+          {saveStatus ? (
+            <div className="flex items-center gap-3">
+              <p
+                role="status"
+                className={`font-body text-xs ${saveStatus.kind === "error" ? "text-ink" : "text-muted"}`}
+              >
+                {saveStatus.kind === "saving"
+                  ? "Saving"
+                  : saveStatus.kind === "saved"
+                    ? "Saved"
+                    : saveStatus.message || "Could not save."}
+              </p>
+              {saveStatus.kind === "error" && onRetrySave ? (
+                <button type="button" className={BTN_SECONDARY} onClick={onRetrySave}>
+                  Retry save
+                </button>
+              ) : null}
+            </div>
+          ) : (
+            <p className="font-body text-xs text-muted">Demo — not saved</p>
+          )}
         </header>
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_17rem]">
@@ -1018,7 +1189,11 @@ export function TierListEditor({ initialState }: { initialState: TierListState }
                     <input
                       className={FIELD}
                       value={editItemTitle}
-                      onChange={(event) => setEditItemTitle(event.currentTarget.value)}
+                      onChange={(event) => {
+                        editItemTitleRef.current = event.currentTarget.value;
+                        setEditItemTitle(event.currentTarget.value);
+                        commitDrafts();
+                      }}
                       tabIndex={selectedItem ? 0 : -1}
                     />
                   </label>
@@ -1028,7 +1203,11 @@ export function TierListEditor({ initialState }: { initialState: TierListState }
                       className={FIELD}
                       type="url"
                       value={editItemImageUrl}
-                      onChange={(event) => setEditItemImageUrl(event.currentTarget.value)}
+                      onChange={(event) => {
+                        editItemImageUrlRef.current = event.currentTarget.value;
+                        setEditItemImageUrl(event.currentTarget.value);
+                        commitDrafts();
+                      }}
                       placeholder="Optional — https://…"
                       tabIndex={selectedItem ? 0 : -1}
                     />
@@ -1077,7 +1256,11 @@ export function TierListEditor({ initialState }: { initialState: TierListState }
                     <input
                       className={FIELD}
                       value={editTierLabel}
-                      onChange={(event) => setEditTierLabel(event.currentTarget.value)}
+                      onChange={(event) => {
+                        editTierLabelRef.current = event.currentTarget.value;
+                        setEditTierLabel(event.currentTarget.value);
+                        commitDrafts();
+                      }}
                       onBlur={saveSelectedTierLabel}
                       tabIndex={selectedTier ? 0 : -1}
                     />
@@ -1196,7 +1379,7 @@ export function TierListEditor({ initialState }: { initialState: TierListState }
 
             <div className="border-t border-line pt-6">
               <button type="button" className={`${BTN_SECONDARY} w-full`} onClick={resetEditor}>
-                Reset demo
+                {onChange ? "Reset list" : "Reset demo"}
               </button>
             </div>
 

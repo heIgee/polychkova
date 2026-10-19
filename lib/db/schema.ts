@@ -1,4 +1,16 @@
-import { customType, integer, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import {
+  check,
+  customType,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+} from "drizzle-orm/pg-core";
+import type { ListBoard, ListVisibility } from "../list-board";
 
 const bytea = customType<{ data: Buffer }>({
   dataType() {
@@ -37,4 +49,26 @@ export const accounts = pgTable(
     session_state: text("session_state"),
   },
   (account) => [primaryKey({ columns: [account.provider, account.providerAccountId] })],
+);
+
+export const lists = pgTable(
+  "list",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description").notNull(),
+    visibility: text("visibility").$type<ListVisibility>().notNull().default("unlisted"),
+    board: jsonb("board").$type<ListBoard>().notNull(),
+    createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt", { mode: "date" }).notNull().defaultNow(),
+  },
+  (list) => [
+    index("list_userId_updatedAt_idx").on(list.userId, list.updatedAt),
+    check("list_visibility_check", sql`${list.visibility} in ('unlisted', 'public')`),
+  ],
 );
